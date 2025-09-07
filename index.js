@@ -2,7 +2,7 @@ app.get('/check', async (req, res) => {
   const username = req.query.username?.toLowerCase();
   if (!username) return res.status(400).json({ error: 'Missing username' });
 
-  // Check if already redeemed
+  // Already redeemed → block immediately
   if (redeemedUsers[username]) {
     return res.status(403).json({ error: 'Username already redeemed' });
   }
@@ -12,17 +12,18 @@ app.get('/check', async (req, res) => {
     if (!userId) return res.status(404).json({ error: 'User not found' });
 
     const owns = await ownsGamepass(userId);
+
     if (owns) {
-      // First-time buyer → allow + lock
+      // ✅ Owns gamepass → lock username
       redeemedUsers[username] = true;
       saveRedeemed();
       return res.json({ owns: true });
     } else {
-      // User doesn't own the gamepass
+      // ❌ Doesn't own → allow retry later
       return res.json({ owns: false });
     }
   } catch (err) {
     console.error('❌ Error:', err.message);
-    res.status(500).json({ error: 'Already Redeemed' });
+    res.status(500).json({ error: 'Failed to check ownership' });
   }
 });
