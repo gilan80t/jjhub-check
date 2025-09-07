@@ -23,6 +23,6 @@ app.get('/check', async (req, res) => {
     }
   } catch (err) {
     console.error('❌ Error:', err.message);
-    res.status(500).json({ error: 'Failed to check ownership' });
+    res.status(500).json({ error: 'Already Redeemed' });
   }
 });
