@@ -1,50 +1,28 @@
-const express = require('express');
-const axios = require('axios');
-const cors = require('cors');
-const app = express();
-app.use(cors());
-
-const GAMEPASS_ID = 1451516545;
-
-// Convert Roblox username to userId
-async function getUserId(username) {
-  const res = await axios.post('https://users.roblox.com/v1/usernames/users', {
-    usernames: [username],
-    excludeBannedUsers: true
-  });
-
-  const userData = res.data.data[0];
-  return userData?.id || null;
-}
-
-// Check if user owns the gamepass
-async function ownsGamepass(userId) {
-  const res = await axios.get(`https://inventory.roblox.com/v1/users/${userId}/items/GamePass/${GAMEPASS_ID}`);
-  return res.data.data.length > 0;
-}
-
-// API endpoint: /check?username=USERNAME
 app.get('/check', async (req, res) => {
-  const username = req.query.username;
-  if (!username) {
-    return res.status(400).json({ error: 'Missing username' });
+  const username = req.query.username?.toLowerCase();
+  if (!username) return res.status(400).json({ error: 'Missing username' });
+
+  // Check if already redeemed
+  if (redeemedUsers[username]) {
+    return res.status(403).json({ error: 'Username already redeemed' });
   }
 
   try {
     const userId = await getUserId(username);
-    if (!userId) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    if (!userId) return res.status(404).json({ error: 'User not found' });
 
     const owns = await ownsGamepass(userId);
-    res.json({ owns });
+    if (owns) {
+      // First-time buyer → allow + lock
+      redeemedUsers[username] = true;
+      saveRedeemed();
+      return res.json({ owns: true });
+    } else {
+      // User doesn't own the gamepass
+      return res.json({ owns: false });
+    }
   } catch (err) {
-    console.error('❌ Error checking ownership:', err.message);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('❌ Error:', err.message);
+    res.status(500).json({ error: 'Failed to check ownership' });
   }
-});
-
-// Render-compatible listener
-app.listen(process.env.PORT || 3000, '0.0.0.0', () => {
-  console.log('✅ JJHub backend is live');
 });
